@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Generator</title>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* CSS styles are embedded here */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+        :root {
+            --primary-color: #7b2cbf;
+            --secondary-color: #9d4edd;
+            --background-color: #121212;
+            --surface-color: #1e1e1e;
+            --text-color: #e0e0e0;
+            --text-color-muted: #a0a0a0;
+            --border-color: #333;
+            --success-color: #4CAF50;
+            --error-color: #f44336;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1400px;
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            grid-template-rows: auto 1fr;
+            grid-template-areas:
+                "header history"
+                "main history";
+            gap: 2rem;
+            padding: 2rem;
+        }
+
+        /* --- Header --- */
+        .app-header {
+            grid-area: header;
+        }
+        .app-header h1 {
+            font-size: 2.5rem;
+            color: white;
+            font-weight: 600;
+        }
+        .app-header p {
+            color: var(--text-color-muted);
+            font-size: 1.1rem;
+        }
+
+        /* --- Main Content --- */
+        .app-main {
+            grid-area: main;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* --- Form Section --- */
+        .generator-form {
+            background-color: var(--surface-color);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-color-muted);
+        }
+
+        textarea, select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            background-color: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-color);
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(123, 44, 191, 0.3);
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        #generate-btn {
+            padding: 1rem;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        #generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(157, 78, 221, 0.4);
+        }
+        #generate-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* --- Gallery Section --- */
+        .loading-spinner {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .image-card {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            background-color: var(--surface-color);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .image-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .image-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            aspect-ratio: 1 / 1; /* Default aspect ratio */
+        }
+        .image-card .error-text {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-color-muted);
+            width: 100%;
+            height: 100%;
+            aspect-ratio: 1 / 1; /* Match aspect ratio */
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .image-card .download-btn {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        .image-card:hover .download-btn {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .download-btn:hover {
+            background-color: var(--primary-color);
+        }
+
+        /* --- History Panel --- */
+        .history-panel {
+            grid-area: history;
+            background-color: var(--surface-color);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 4rem);
+        }
+        .history-panel h2 {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .history-list {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .history-item {
+            background-color: var(--background-color);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 0.9rem;
+            word-wrap: break-word;
+        }
+        .history-item:hover {
+            background-color: var(--primary-color);
+        }
+        .history-placeholder {
+            color: var(--text-color-muted);
+            font-style: italic;
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .clear-history-btn {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background-color: #333;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .clear-history-btn:hover {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        /* --- Responsive Design --- */
+        @media (max-width: 900px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+                grid-template-areas:
+                    "header"
+                    "main"
+                    "history";
+            }
+            .history-panel {
+                max-height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>AI Image Generator</h1>
+            <p>Turn your text prompts into stunning visuals</p>
+        </header>
+
+        <main class="app-main">
+            <section class="generator-section">
+                <form id="generator-form" class="generator-form">
+                    <div class="form-group">
+                        <label for="prompt-input">Your Prompt</label>
+                        <textarea id="prompt-input" rows="3" placeholder="e.g., A surrealist painting of a cat playing a piano on a cloud"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="resolution-select">Resolution</label>
+                        <select id="resolution-select">
+                            <option value="512x512">512x512 (Square)</option>
+                            <option value="1024x1024" selected>1024x1024 (Large Square)</option>
+                            <option value="768x1024">768x1024 (Portrait)</option>
+                            <option value="1024x768">1024x768 (Landscape)</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" id="generate-btn">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Images
+                    </button>
+                </form>
+            </section>
+            
+            <section class="gallery-section">
+                <div id="loading-spinner" class="loading-spinner" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Generating your masterpiece...</p>
+                </div>
+
+                <div id="image-grid" class="image-grid">
+                    <!-- Generated images will be appended here -->
+                </div>
+            </section>
+        </main>
+        
+        <aside class="history-panel">
+            <h2><i class="fa-solid fa-clock-rotate-left"></i> History</h2>
+            <div id="history-list" class="history-list">
+                <!-- History items will be populated here -->
+                <p class="history-placeholder">Your generated prompts will appear here.</p>
+            </div>
+            <button id="clear-history-btn" class="clear-history-btn">Clear History</button>
+        </aside>
+
+    </div>
+
+    <script>
+        // JavaScript logic is embedded here
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const generatorForm = document.getElementById('generator-form');
+            const promptInput = document.getElementById('prompt-input');
+            const resolutionSelect = document.getElementById('resolution-select');
+            const generateBtn = document.getElementById('generate-btn');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const imageGrid = document.getElementById('image-grid');
+            const historyList = document.getElementById('history-list');
+            const clearHistoryBtn = document.getElementById('clear-history-btn');
+
+            const API_BASE_URL = "https://image.pollinations.ai/prompt/";
+            
+            // --- EVENT LISTENERS ---
+
+            generatorForm.addEventListener('submit', handleFormSubmit);
+            clearHistoryBtn.addEventListener('click', clearHistory);
+            historyList.addEventListener('click', handleHistoryClick);
+
+            // --- INITIALIZATION ---
+            loadHistory();
+
+
+            // --- FUNCTIONS ---
+
+            async function handleFormSubmit(event) {
+                event.preventDefault(); // Prevent page reload
+                const prompt = promptInput.value.trim();
+                if (!prompt) {
+                    alert('Please enter a prompt.');
+                    return;
+                }
+
+                const [width, height] = resolutionSelect.value.split('x');
+
+                // Update UI for loading state
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = '<i class="fa-solid fa-hourglass fa-spin"></i> Generating...';
+                loadingSpinner.style.display = 'block';
+                imageGrid.innerHTML = ''; // Clear previous images
+
+                try {
+                    await generateAndDisplayImages(prompt, width, height);
+                    saveHistory(prompt);
+                    loadHistory(); // Refresh history list
+                } catch (error) {
+                    console.error('An error occurred during image generation:', error);
+                    alert('Failed to generate images. Please check the console for errors and try again.');
+                } finally {
+                    // Restore UI after completion
+                    generateBtn.disabled = false;
+                    generateBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Images';
+                    loadingSpinner.style.display = 'none';
+                }
+            }
+
+            async function generateAndDisplayImages(prompt, width, height) {
+                const imagePromises = [];
+
+                // Create 4 image generation requests
+                for (let i = 0; i < 4; i++) {
+                    const seed = Math.floor(Math.random() * 1000000); // Generate a random seed
+                    const encodedPrompt = encodeURIComponent(prompt);
+                    const imageUrl = `${API_BASE_URL}${encodedPrompt}?nologo=true&width=${width}&height=${height}&seed=${seed}&enhance=true`;
+                    
+                    // Create image card and append it immediately to show loading
+                    const imageCard = createImageCard(imageUrl, width, height);
+                    imageGrid.appendChild(imageCard);
+                    
+                    // We wait for the image to load to resolve the promise.
+                    imagePromises.push(new Promise((resolve) => {
+                        imageCard.querySelector('img').onload = resolve;
+                        imageCard.querySelector('img').onerror = resolve; // Resolve even on error to not block others
+                    }));
+                }
+
+                // Wait for all images to have either loaded or errored
+                await Promise.all(imagePromises);
+            }
+            
+            function createImageCard(imageUrl, width, height) {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                card.style.aspectRatio = `${width} / ${height}`; // Set aspect ratio for the card container
+
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                img.alt = 'AI generated image';
+                // The aspect ratio for the img itself is handled by CSS (object-fit)
+
+                img.onerror = () => {
+                     // Handle broken image links from the API
+                     card.innerHTML = `<p class="error-text">Image failed to load.<br><span style="font-size:0.8em; color: #777;">(API may be busy)</span></p>`;
+                     card.style.display = 'flex';
+                     card.style.alignItems = 'center';
+                     card.style.justifyContent = 'center';
+                };
+                
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'download-btn';
+                downloadBtn.innerHTML = '<i class="fa-solid fa-download"></i>';
+                downloadBtn.onclick = (e) => {
+                    e.stopPropagation(); // Prevent any parent click events
+                    handleDownload(imageUrl, promptInput.value);
+                };
+                
+                card.appendChild(img);
+                card.appendChild(downloadBtn);
+
+                return card;
+            }
+            
+            async function handleDownload(url, prompt) {
+                try {
+                    // To bypass CORS issues, we can try fetching through a proxy, but the simplest robust method is a direct link
+                    // This method relies on the server NOT blocking direct downloads.
+                    // The fetch-as-blob method is more robust for CORS but can be blocked too.
+                    // We will implement the blob method as it's generally better practice.
+
+                    // Indicate download has started
+                    const downloadButton = event.target.closest('button');
+                    downloadButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error('Network response was not ok.');
+                    const blob = await response.blob();
+                    
+                    // Create a temporary link to trigger the download
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    
+                    // Create a clean filename
+                    const filename = `${prompt.substring(0, 30).replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.png`;
+                    link.download = filename;
+                    
+                    // Trigger download and cleanup
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href); // Free up memory
+
+                    // Restore button icon
+                    downloadButton.innerHTML = '<i class="fa-solid fa-download"></i>';
+                    
+                } catch (error) {
+                    console.error('Download failed:', error);
+                    alert('Could not download the image. The browser might be blocking the download due to security policies (CORS). You can try right-clicking the image and "Save Image As...".');
+                    event.target.closest('button').innerHTML = '<i class="fa-solid fa-download"></i>';
+                }
+            }
+
+            // --- HISTORY MANAGEMENT ---
+            
+            function getHistory() {
+                return JSON.parse(localStorage.getItem('generationHistory')) || [];
+            }
+            
+            function saveHistory(prompt) {
+                const history = getHistory();
+                // Remove the prompt if it already exists to move it to the top
+                const existingIndex = history.indexOf(prompt);
+                if (existingIndex > -1) {
+                    history.splice(existingIndex, 1);
+                }
+
+                history.unshift(prompt); // Add new prompt to the beginning
+                
+                // Keep history to a reasonable size, e.g., 50 items
+                if (history.length > 50) {
+                    history.pop();
+                }
+                localStorage.setItem('generationHistory', JSON.stringify(history));
+            }
+            
+            function loadHistory() {
+                const history = getHistory();
+                historyList.innerHTML = ''; // Clear current list
+                
+                if (history.length === 0) {
+                    historyList.innerHTML = '<p class="history-placeholder">Your generated prompts will appear here.</p>';
+                    clearHistoryBtn.style.display = 'none';
+                } else {
+                    history.forEach(prompt => {
+                        const item = document.createElement('div');
+                        item.className = 'history-item';
+                        item.textContent = prompt;
+                        historyList.appendChild(item);
+                    });
+                    clearHistoryBtn.style.display = 'block';
+                }
+            }
+            
+            function clearHistory() {
+                if (confirm('Are you sure you want to clear all generation history?')) {
+                    localStorage.removeItem('generationHistory');
+                    loadHistory();
+                }
+            }
+            
+            function handleHistoryClick(event) {
+                if (event.target.classList.contains('history-item')) {
+                    const prompt = event.target.textContent;
+                    promptInput.value = prompt;
+                    // Scroll to the top and trigger form submission
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    generatorForm.dispatchEvent(new Event('submit'));
+                }
+            }
+        });
+    </script>
+</body>
+</html>
